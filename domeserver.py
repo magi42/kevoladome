@@ -37,7 +37,7 @@ class DirectionService(threading.Thread):
         stepdir = 0
 
         while self.shutdown == False:
-            time.sleep(1)
+            time.sleep(0.01)
             if state == 0: # No contact
                 if GPIO.input(DOME_MAGSWITCH_1):
                     state = 1
@@ -51,9 +51,20 @@ class DirectionService(threading.Thread):
                 elif GPIO.input(DOME_MAGSWITCH_1) and GPIO.input(DOME_MAGSWITCH_2):
                     state = 2 # Middle position
             elif state == 2: # Double contact
-                pass
-            elif state == 3:
-                pass
+                if stepdir > 0 and not GPIO.input(DOME_MAGSWITCH_1) and GPIO.input(DOME_MAGSWITCH_2):
+                    state = 1
+                    stepdir = -1
+                    self.direction += stepdir
+                elif stepdir < 0 and GPIO.input(DOME_MAGSWITCH_1) and not GPIO.input(DOME_MAGSWITCH_2):
+                    state = 1
+                    stepdir = +1
+                    self.direction += stepdir
+                    
+            # On reset (south direction), we reset the direction,
+            # but not the state, as the magnet switches could
+            # have a contact, which is just OK.
+            if GPIO.input(DOME_RESETSWITCH):
+                self.direction = 0
         print "Direction service stopped."
         
     def stop(self):
