@@ -37,7 +37,19 @@ class DirectionService(threading.Thread):
         stepdir = 0
 
         while self.shutdown == False:
+            # Stepping - could use triggers as well
             time.sleep(0.01)
+
+            # We use here a simple state machine to count stepping -
+            # not sure if this is the best solution, but it works.
+            #
+            # When stepping, there is a first contact,
+            # then a double contact with the overlapping
+            # sensors, and then reverse single contact.
+            # While at the reverse single contact, the
+            # encoder can be rolled backwards.
+            #
+            # Contact noise filtering is not implemented.
             if state == 0: # No contact
                 if GPIO.input(DOME_MAGSWITCH_1):
                     state = 1
@@ -92,13 +104,13 @@ signal.signal(signal.SIGINT, sigintHandler)
 # Web Server
 ################################################################################
 class myHandler(BaseHTTPRequestHandler):
-    #Handler for the GET requests
+    # Handler for HTTP GET requests
     def do_GET(self):
         self.send_response(200)
         self.send_header('Content-type','text/html')
         self.end_headers()
         
-        # Send the html message
+        # For all requests, send the same response
         self.wfile.write("dome=%d" % directionService.direction)
         return
 
