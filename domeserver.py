@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import threading,time,sys,signal
+import threading,time,sys,signal,logging
 import RPi.GPIO as GPIO
 from BaseHTTPServer import *
 
@@ -11,6 +11,23 @@ PORT_NUMBER = 8080
 DOME_MAGSWITCH_1 = 17
 DOME_MAGSWITCH_2 = 18
 DOME_RESETSWITCH = 27
+
+# Logging
+LOGFILE = "domeserver.log"
+
+################################################################################
+# Configure and start logging
+################################################################################
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Log to file
+handler = logging.FileHandler(LOGFILE)
+handler.setLevel(logging.INFO)
+formatter = logging.Formatter("%(asctime)s %(name)s %(threadName)s %(funcName)s %(levelname)s %(message)s")
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 ################################################################################
 # DirectionService
@@ -25,7 +42,7 @@ class DirectionService(threading.Thread):
         self.start()
     
     def run(self):
-        print "Direction service started."
+        logger.info("Direction service started.")
         
         # Configure I/O
         GPIO.setmode(GPIO.BCM)
@@ -77,7 +94,7 @@ class DirectionService(threading.Thread):
             # have a contact, which is just OK.
             if GPIO.input(DOME_RESETSWITCH):
                 self.direction = 0
-        print "Direction service stopped."
+        logger.info("Direction service stopped.")
         
     def stop(self):
         self.shutdown = True
@@ -86,16 +103,16 @@ class DirectionService(threading.Thread):
 # Interrupt signal handler
 ################################################################################
 def sigintHandler(signal, frame):
-    print "Dome server received interrupt signal. Stopping service threads."
+    logger.info("Dome server received interrupt signal. Stopping service threads.")
     for thread in serviceThreads:
         if thread.isAlive():
             thread.stop()
     for thread in serviceThreads:
         thread.join()
 
-    print "Stopping HTTP server"
+    logger.info("Stopping HTTP server")
     server.socket.close()
-    print "Dome server stopped."
+    logger.info("Dome server stopped.")
     sys.exit(0)
 
 signal.signal(signal.SIGINT, sigintHandler)
@@ -119,14 +136,15 @@ class myHandler(BaseHTTPRequestHandler):
 ################################################################################
 
 # Start service threads
+logger.info("Starting services")
 directionService = DirectionService()
 serviceThreads.append(directionService)
 
 # Create a web server and define the handler to manage the
 # incoming request
 server = HTTPServer(('', PORT_NUMBER), myHandler)
-print "Started HTTP server on port %d" % (PORT_NUMBER)
-print "Dome server started."
+logger.info("Started HTTP server on port %d" % (PORT_NUMBER))
+logger.info("Dome server started.")
 
 # Wait forever for incoming HTTP requests
 server.serve_forever()
